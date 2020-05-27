@@ -1,0 +1,6 @@
+tasks:
+  - init: bundle install
+    command: ruby app.rb
+ports:
+  - port: 4567
+    onOpen: open-browser
