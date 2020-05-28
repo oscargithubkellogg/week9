@@ -16,7 +16,13 @@ after { puts; }                                                                 
 
 events_table = DB.from(:events)
 rsvps_table = DB.from(:rsvps)
-# users_table = DB.from(:users)
+users_table = DB.from(:users)
+
+before do
+    # SELECT * FROM users WHERE id = session[:user_id]
+    @current_user = users_table.where(:id => session[:user_id]).to_a[0]
+    puts @current_user.inspect
+end
 
 # Home page (all events)
 get "/" do
@@ -26,6 +32,7 @@ end
 
 # Show a single event
 get "/events/:id" do
+    @user_table = users_table
     # SELECT * FROM events WHERE id=:id
     @event = events_table.where(:id => params["id"]).to_a[0]
     # SELECT * FROM rsvps WHERE event_id=:id
@@ -42,11 +49,10 @@ get "/events/:id/rsvps/new" do
 end
 
 # Receiving end of new RSVP form
-get "/events/:id/rsvps/create" do
+post "/events/:id/rsvps/create" do
     rsvps_table.insert(:event_id => params["id"],
                        :going => params["going"],
-                       :name => params["name"],
-                       :email => params["email"],
+                       :user_id => @current_user[:id],
                        :comments => params["comments"])
     @event = events_table.where(:id => params["id"]).to_a[0]
     view "create_rsvp"
@@ -58,8 +64,10 @@ get "/users/new" do
 end
 
 # Receiving end of new user form
-get "/users/create" do
-    puts params
+post "/users/create" do
+    users_table.insert( :name => params["name"],
+                        :email => params["email"],
+                        :password => params["password"])
     view "create_user"
 end
 
@@ -69,9 +77,24 @@ get "/logins/new" do
 end
 
 # Receiving end of login form
-get "/logins/create" do
+post "/logins/create" do
     puts params
-    view "create_login"
+    email_entered = params["email"]
+    password_entered = params["password"]
+    # SELECT * FROM users WHERE email = email_entered
+    user = users_table.where(:email => email_entered).to_a[0]
+    if user
+        puts user.inspect
+        # test password against the one in the users table
+        if user[:password] == password_entered
+            session[:user_id] = user[:id]
+            view "create_login"
+        else
+            view "create_login_failed"
+        end
+    else
+        view "create_login_failed"
+    end
 end
 
 # Logout
